@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>PlaySpire</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#0ea5e9;
+  overflow:hidden;
+}
+
+/* SCREEN SYSTEM */
+.screen{
+  position:fixed;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  text-align:center;
+}
+.screen.active{display:flex}
+
+/* BUTTONS */
+button{
+  padding:14px 30px;
+  font-size:18px;
+  border:none;
+  border-radius:10px;
+  margin:10px;
+  cursor:pointer;
+}
+
+/* FLAPPY */
+#game{
+  position:fixed;
+  inset:0;
+  display:none;
+}
+#bird{
+  position:absolute;
+  width:40px;height:40px;
+  background:yellow;
+  border-radius:50%;
+  left:80px;top:200px;
+}
+.pipe{
+  position:absolute;
+  width:60px;
+  background:#16a34a;
+}
+#score{
+  position:fixed;
+  top:15px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:32px;
+}
+
+/* REACTION */
+#reactionBox{
+  width:80vw;
+  height:35vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:32px;
+  border-radius:15px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LANDING -->
+<div id="landing" class="screen active">
+  <h1>Welcome to PlaySpire 🎮</h1>
+  <p>Enjoy your game at <b>IDK Shop</b></p>
+  <button onclick="showMenu()">Enjoy Your Game</button>
+</div>
+
+<!-- MENU -->
+<div id="menu" class="screen">
+  <h2>Choose a Game</h2>
+  <button onclick="startFlappy()">Flappy Box</button>
+  <button onclick="startReaction()">Reaction Speed</button>
+</div>
+
+<!-- FLAPPY GAME -->
+<div id="game">
+  <div id="score">0</div>
+  <div id="bird"></div>
+</div>
+
+<!-- REACTION GAME -->
+<div id="reaction" class="screen">
+  <div id="reactionBox">WAIT…</div>
+</div>
+
+<!-- GAME OVER -->
+<div id="over" class="screen">
+  <h2 id="overText"></h2>
+  <button onclick="showMenu()">Back to Menu</button>
+</div>
+
+<script>
+/* ---------- SCREEN CONTROL ---------- */
+const landing=document.getElementById("landing");
+const menu=document.getElementById("menu");
+const game=document.getElementById("game");
+const reaction=document.getElementById("reaction");
+const over=document.getElementById("over");
+const overText=document.getElementById("overText");
+
+function hideAll(){
+  landing.classList.remove("active");
+  menu.classList.remove("active");
+  reaction.classList.remove("active");
+  over.classList.remove("active");
+  game.style.display="none";
+}
+
+function showMenu(){
+  hideAll();
+  menu.classList.add("active");
+}
+
+/* ---------- SOUND ---------- */
+const ctx=new (window.AudioContext||window.webkitAudioContext)();
+function beep(f,d){
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.frequency.value=f;
+  o.connect(g);g.connect(ctx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+d);
+  o.stop(ctx.currentTime+d);
+}
+
+/* ---------- FLAPPY ---------- */
+const bird=document.getElementById("bird");
+const scoreEl=document.getElementById("score");
+let birdY,vel,pipeX,pipeTop,score,speed,gap,run;
+
+let topPipe=document.createElement("div");
+let bottomPipe=document.createElement("div");
+topPipe.className=bottomPipe.className="pipe";
+game.appendChild(topPipe);
+game.appendChild(bottomPipe);
+
+function startFlappy(){
+  hideAll();
+  game.style.display="block";
+
+  birdY=200;vel=0;
+  pipeX=innerWidth;
+  score=0;
+  speed=2.5;
+  gap=180;
+  run=true;
+  scoreEl.innerText=0;
+  loopFlappy();
+}
+
+game.onclick=()=>{
+  if(run){vel=-8;beep(600,0.05)}
+};
+
+function loopFlappy(){
+  if(!run) return;
+
+  vel+=0.4;
+  birdY+=vel;
+  bird.style.top=birdY+"px";
+
+  pipeX-=speed;
+  if(pipeX<-60){
+    pipeX=innerWidth;
+    pipeTop=Math.random()*240+60;
+    score++;
+    scoreEl.innerText=score;
+    beep(900,0.05);
+    if(score%5===0){
+      speed+=0.3;
+      gap=Math.max(130,gap-5);
+    }
+  }
+
+  topPipe.style.left=bottomPipe.style.left=pipeX+"px";
+  topPipe.style.height=pipeTop+"px";
+  bottomPipe.style.top=(pipeTop+gap)+"px";
+  bottomPipe.style.height=(innerHeight-pipeTop-gap)+"px";
+
+  if(
+    birdY<0||birdY+40>innerHeight||
+    (80+40>pipeX&&80<pipeX+60&&(birdY<pipeTop||birdY+40>pipeTop+gap))
+  ){
+    run=false;
+    beep(200,0.4);
+    endGame("Flappy Score: "+score);
+    return;
+  }
+  requestAnimationFrame(loopFlappy);
+}
+
+/* ---------- REACTION ---------- */
+let startTime,canTap=false;
+const box=document.getElementById("reactionBox");
+
+function startReaction(){
+  hideAll();
+  reaction.classList.add("active");
+
+  box.style.background="red";
+  box.innerText="WAIT…";
+  canTap=false;
+
+  setTimeout(()=>{
+    box.style.background="green";
+    box.innerText="TAP!";
+    startTime=Date.now();
+    canTap=true;
+    beep(800,0.1);
+  },Math.random()*2000+1500);
+}
+
+reaction.onclick=()=>{
+  if(!canTap){
+    endGame("Too Early ❌");
+  }else{
+    beep(500,0.2);
+    endGame("Reaction Time: "+(Date.now()-startTime)+" ms");
+  }
+};
+
+/* ---------- GAME OVER ---------- */
+function endGame(text){
+  hideAll();
+  over.classList.add("active");
+  overText.innerText=text;
+}
+</script>
+
+</body>
+</html>
